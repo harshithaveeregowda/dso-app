@@ -104,6 +104,12 @@ if data_file.exists():
             background: #F07C00 !important;
             border: 2px solid #F07C00 !important;
         }
+
+    
+        /* slider active (filled) part */
+        div[data-baseweb="slider"] div[data-testid="stThumbValue"] ~ div > div {
+            background: orange !important;  /* active section becomes orange */
+        }
         </style>
         """,
         unsafe_allow_html=True
@@ -450,7 +456,14 @@ else:
             st.info("Train the models in the sidebar to run simulations.")
         else:
             st.markdown("Use the sliders to simulate changes to business drivers and see the potential impact on the average predicted DSO for the test set.")
-            X_test_modified = st.session_state.X_test.copy()
+            # Original test data
+            X_original = st.session_state.X_test.copy()
+
+            # Simulator-1 works on its own copy
+            X_sim1 = X_original.copy()
+
+            # Simulator-2 works on its own copy
+            X_sim2 = X_original.copy()
 
             col1, col2 = st.columns(2)
 
@@ -458,41 +471,41 @@ else:
 
                 st.subheader("Simulator-1")
 
-                simulation_cols = st.columns(3)
+                simulation_cols_1 = st.columns(3)
                 col_idx = 0
                 for feature in st.session_state.features:
-                    with simulation_cols[col_idx % 3]:
-                        min_val = X_test_modified[feature].min()
-                        max_val = X_test_modified[feature].max()
-                        mean_val = X_test_modified[feature].mean()
+                    with simulation_cols_1[col_idx % 3]:
+                        min_val_1 = X_sim1[feature].min()
+                        max_val_1 = X_sim1[feature].max()
+                        mean_val_1 = X_sim1[feature].mean()
 
-                        if min_val < 1 and max_val <= 1:
-                            change = st.slider(f"Change {feature} (pp)", -0.25, 0.25, 0.0, 0.01, key=f"sim_{feature}")
-                            X_test_modified[feature] += change
-                            X_test_modified[feature] = np.clip(X_test_modified[feature], 0, 1)
+                        if min_val_1 < 1 and max_val_1 <= 1:
+                            change_1 = st.slider(f"Change {feature} (pp)", -0.25, 0.25, 0.0, 0.01, key=f"sim_{feature}")
+                            X_sim1[feature] += change_1
+                            X_sim1[feature] = np.clip(X_sim1[feature], 0, 1)
                         else:
-                            change = st.slider(f"Change {feature} (days)", -int(mean_val), int(mean_val), 0, 1, key=f"sim_{feature}")
-                            X_test_modified[feature] += change
-                            X_test_modified[feature] = np.clip(X_test_modified[feature], 0, None)
+                            change_1 = st.slider(f"Change {feature} (days)", -int(mean_val_1), int(mean_val_1), 0, 1, key=f"sim_{feature}")
+                            X_sim1[feature] += change_1
+                            X_sim1[feature] = np.clip(X_sim1[feature], 0, None)
                     col_idx += 1
 
                 st.subheader("Simulator-1 Results")
 
-                pred_before = st.session_state.xgb_model.predict(st.session_state.X_test)
-                pred_after = st.session_state.xgb_model.predict(X_test_modified)
-                avg_before = np.mean(pred_before)
-                avg_after = np.mean(pred_after)
-                avg_impact = avg_after - avg_before
+                pred_before_1 = st.session_state.xgb_model.predict(st.session_state.X_test)
+                pred_after_1 = st.session_state.xgb_model.predict(X_sim1)
+                avg_before_1 = np.mean(pred_before_1)
+                avg_after_1 = np.mean(pred_after_1)
+                avg_impact_1 = avg_after_1 - avg_before_1
 
                 res_col1, res_col2, res_col3 = st.columns(3)
-                res_col1.metric("Original Avg. Predicted DSO", f"{avg_before:.2f} days")
-                res_col2.metric("Simulated Avg. Predicted DSO", f"{avg_after:.2f} days", delta=f"{avg_impact:.2f} days")
+                res_col1.metric("Original Avg. Predicted DSO", f"{avg_before_1:.2f} days")
+                res_col2.metric("Simulated Avg. Predicted DSO", f"{avg_after_1:.2f} days", delta=f"{avg_impact_1:.2f} days")
 
-                if abs(avg_impact) > 0.01:
-                    if avg_impact < 0:
-                        st.success(f"**This combination of changes could reduce the average DSO by {abs(avg_impact):.2f} days.**")
+                if abs(avg_impact_1) > 0.01:
+                    if avg_impact_1 < 0:
+                        st.success(f"**This combination of changes could reduce the average DSO by {abs(avg_impact_1):.2f} days.**")
                     else:
-                        st.warning(f"**This combination of changes could increase the average DSO by {avg_impact:.2f} days.**")
+                        st.warning(f"**This combination of changes could increase the average DSO by {avg_impact_1:.2f} days.**")
                 else:
                     st.info("No significant change in average DSO with current simulation settings.")
 
@@ -504,24 +517,24 @@ else:
                 col_idx = 0
                 for feature in st.session_state.features:
                     with simulation_cols_2[col_idx % 3]:
-                        min_val = X_test_modified[feature].min()
-                        max_val = X_test_modified[feature].max()
-                        mean_val = X_test_modified[feature].mean()
+                        min_val = X_sim2[feature].min()
+                        max_val = X_sim2[feature].max()
+                        mean_val = X_sim2[feature].mean()
 
                         if min_val < 1 and max_val <= 1:
                             change = st.slider(f"Change {feature} (pp)", -0.25, 0.25, 0.0, 0.01, key=f"sim_{feature}_2")
-                            X_test_modified[feature] += change
-                            X_test_modified[feature] = np.clip(X_test_modified[feature], 0, 1)
+                            X_sim2[feature] += change
+                            X_sim2[feature] = np.clip(X_sim2[feature], 0, 1)
                         else:
                             change = st.slider(f"Change {feature} (days)", -int(mean_val), int(mean_val), 0, 1, key=f"sim_{feature}_2")
-                            X_test_modified[feature] += change
-                            X_test_modified[feature] = np.clip(X_test_modified[feature], 0, None)
+                            X_sim2[feature] += change
+                            X_sim2[feature] = np.clip(X_sim2[feature], 0, None)
                     col_idx += 1
 
                 st.subheader("Simulator-2 Results")
 
                 pred_before = st.session_state.xgb_model.predict(st.session_state.X_test)
-                pred_after = st.session_state.xgb_model.predict(X_test_modified)
+                pred_after = st.session_state.xgb_model.predict(X_sim2)
                 avg_before = np.mean(pred_before)
                 avg_after = np.mean(pred_after)
                 avg_impact = avg_after - avg_before
@@ -538,6 +551,122 @@ else:
                 else:
                     st.info("No significant change in average DSO with current simulation settings.")
 
+            # Original X_test
+            X_orig = st.session_state.X_test.copy()
+            features = st.session_state.features
+            model = st.session_state.xgb_model
+
+            # Slider bounds
+            bounds_dict = {
+                "Avg Days Late Last3 Days": (-5, 5),
+                "Contract Extension Days": (-3, 3),
+                "Forecast Accuracy": (-0.25, 0.25),
+                "Invoice Error Rate": (-0.25, 0.25),
+                "Payment Terms Days": (-53, 53)
+            }
+
+            # Feature type / precision mapping
+            feature_precision = {
+                "Avg Days Late Last3 Days": 0,  # int
+                "Contract Extension Days": 0,  # int
+                "Forecast Accuracy": 2,  # 2 decimals
+                "Invoice Error Rate": 2,  # 2 decimals
+                "Payment Terms Days": 0  # int
+            }
+
+            # Target DSO
+            target_dso = st.number_input("Enter target DSO", value=104.1, step=0.1)
+
+            # Monte Carlo simulation
+            results = []
+            for _ in range(5000):
+                X_sim = X_orig.copy()
+                for f in features:
+                    low, high = bounds_dict[f]
+
+                    if feature_precision[f] == 0:
+                        # strictly integer increment
+                        delta = np.random.randint(np.floor(low), np.ceil(high) + 1)
+                    else:
+                        delta = np.random.uniform(low, high)
+
+                    new_val = X_sim[f] + delta
+
+                    # Clip values for small-range floats
+                    if low < 1 and high <= 1:
+                        new_val = np.clip(new_val, 0, 1)
+                    else:
+                        new_val = np.clip(new_val, 0, None)
+
+                    # Round to correct precision
+                    X_sim[f] = np.round(new_val, feature_precision[f])
+
+                # Predict DSO
+                pred = model.predict(X_sim)
+                avg_pred = np.mean(pred)
+
+                if np.isclose(avg_pred, target_dso, atol=0.5):
+                    row = {}
+                    for f in features:
+                        mean_val = X_sim[f].mean()
+                        # round mean to the right precision
+                        row[f] = int(mean_val) if feature_precision[f] == 0 else round(mean_val, 2)
+                    row["Predicted DSO"] = round(avg_pred, 2)
+                    results.append(row)
+
+            # Display results
+            results_df = pd.DataFrame(results)
+            st.write("Possible slider combinations for target DSO:")
+            #st.dataframe(results_df)
+
+            df_filtered = results_df[
+                (results_df["Payment Terms Days"] >= -53) & (results_df["Payment Terms Days"] <= 53) &
+                (results_df["Invoice Error Rate"] >= -0.25) & (results_df["Invoice Error Rate"] <= 0.25)
+                ]
+            st.dataframe(df_filtered)
+
+            # Original X_test
+            X_orig = st.session_state.X_test.copy()
+            features = st.session_state.features
+            model = st.session_state.xgb_model
+
+            # Slider bounds (same as Simulator-1)
+            bounds_dict = {
+                "Avg Days Late Last3 Days": (-5, 5),
+                "Contract Extension Days": (-3, 3),
+                "Forecast Accuracy": (-0.25, 0.25),
+                "Invoice Error Rate": (-0.25, 0.25),
+                "Payment Terms Days": (-53, 53)
+            }
+
+            # Target DSO
+            target_dso = st.number_input("Enter DSO", value=104.1, step=0.1)
+
+            # Monte Carlo simulation
+            results = []
+            for _ in range(5000):  # generate 5000 random combinations
+                X_sim = X_orig.copy()
+                for f in features:
+                    low, high = bounds_dict[f]
+                    X_sim[f] += np.random.uniform(low, high)
+                    # Apply clipping same as Simulator-1
+                    if low < 1 and high <= 1:
+                        X_sim[f] = np.clip(X_sim[f], 0, 1)
+                    else:
+                        X_sim[f] = np.clip(X_sim[f], 0, None)
+
+                pred = model.predict(X_sim)
+                avg_pred = np.mean(pred)
+
+                if np.isclose(avg_pred, target_dso, atol=0.5):  # keep combinations within ±0.5 day
+                    row = {f: X_sim[f].mean() for f in features}
+                    row["Predicted DSO"] = avg_pred
+                    results.append(row)
+
+            # Display results
+            results_df = pd.DataFrame(results)
+            st.write("Possible slider combinations for target DSO:")
+            st.dataframe(results_df)
 
 #---------------------------------------------Begin: cbs Footer---------------------------------------------------------
 # Footer injection
